@@ -1,0 +1,130 @@
+-- Servicios necesarios
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+
+-- 1. Interfaz flotante y arrastrable
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InstantRobGui"
+pcall(function()
+    screenGui.Parent = CoreGui
+end)
+if not screenGui.Parent then
+    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+end
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 270, 0, 75)
+mainFrame.Position = UDim2.new(0.5, -135, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 10)
+uiCorner.Parent = mainFrame
+
+-- Panel arrastrable para móvil (MuMu Player / emulador)
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 0, 30)
+titleLabel.Position = UDim2.new(0, 10, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 15
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Text = "Robo Express: ACTIVADO"
+titleLabel.Parent = mainFrame
+
+local barBackground = Instance.new("Frame")
+barBackground.Size = UDim2.new(1, -20, 0, 14)
+barBackground.Position = UDim2.new(0, 10, 0, 42)
+barBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+barBackground.BorderSizePixel = 0
+barBackground.Parent = mainFrame
+
+local barBgCorner = Instance.new("UICorner")
+barBgCorner.CornerRadius = UDim.new(0, 6)
+barBgCorner.Parent = barBackground
+
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(1, 0, 1, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(80, 200, 120)
+progressBar.BorderSizePixel = 0
+progressBar.Parent = barBackground
+
+local progressCorner = Instance.new("UICorner")
+progressCorner.CornerRadius = UDim.new(0, 6)
+progressCorner.Parent = progressBar
+
+local percentLabel = Instance.new("TextLabel")
+percentLabel.Size = UDim2.new(1, 0, 1, 0)
+percentLabel.BackgroundTransparency = 1
+percentLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+percentLabel.TextSize = 12
+percentLabel.Font = Enum.Font.GothamBold
+percentLabel.Text = "< 1 SEGUNDO"
+percentLabel.Parent = barBackground
+
+-- 2. Bucle ultrarrápido para disparar la interacción de robo al instante
+task.spawn(function()
+    while true do
+        local character = localPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local rootPos = character.HumanoidRootPart.Position
+            
+            -- Escanea cualquier objeto interactuable o ProximityPrompt cercano en bases enemigas
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") then
+                    local parentPart = obj.Parent
+                    if parentPart and parentPart:IsA("BasePart") then
+                        local dist = (parentPart.Position - rootPos).Magnitude
+                        -- Si estás cerca del objeto (rango de robo)
+                        if dist <= 15 then
+                            -- Modifica el tiempo de espera del prompt a 0 de forma forzada si es editable
+                            pcall(function()
+                                obj.HoldDuration = 0
+                            end)
+                            
+                            -- Dispara la acción de inmediato
+                            pcall(function()
+                                fireproximityprompt(obj)
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+        -- Ciclo ultra corto de 0.1 segundos para que actúe al instante de tocar el objeto
+        task.wait(0.1)
+    end
+end)
