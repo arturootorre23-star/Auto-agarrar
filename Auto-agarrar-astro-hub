@@ -4,9 +4,9 @@ local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local localPlayer = Players.LocalPlayer
 
--- 1. Crear la interfaz gráfica flotante y arrastrable
+-- 1. Crear la interfaz gráfica limpia solo con la barra y el porcentaje
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "InstantStealGui"
+screenGui.Name = "BrainrotAutoCollectGui"
 pcall(function()
     screenGui.Parent = CoreGui
 end)
@@ -14,9 +14,10 @@ if not screenGui.Parent then
     screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 end
 
+-- Panel principal compacto
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 270, 0, 75)
-mainFrame.Position = UDim2.new(0.5, -135, 0.2, 0)
+mainFrame.Size = UDim2.new(0, 250, 0, 50)
+mainFrame.Position = UDim2.new(0.5, -125, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -26,7 +27,7 @@ local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 10)
 uiCorner.Parent = mainFrame
 
--- Panel arrastrable para emulador y celular
+-- Hacer el panel arrastrable para celular o emulador
 local dragging, dragInput, dragStart, startPos
 mainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -54,20 +55,10 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -20, 0, 30)
-titleLabel.Position = UDim2.new(0, 10, 0, 5)
-titleLabel.BackgroundTransparency = 1
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 15
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Text = "Buscando Brainrot para Robar..."
-titleLabel.Parent = mainFrame
-
+-- Fondo de la barra de carga
 local barBackground = Instance.new("Frame")
-barBackground.Size = UDim2.new(1, -20, 0, 14)
-barBackground.Position = UDim2.new(0, 10, 0, 42)
+barBackground.Size = UDim2.new(1, -20, 0, 16)
+barBackground.Position = UDim2.new(0, 10, 0, 17)
 barBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 barBackground.BorderSizePixel = 0
 barBackground.Parent = mainFrame
@@ -76,6 +67,7 @@ local barBgCorner = Instance.new("UICorner")
 barBgCorner.CornerRadius = UDim.new(0, 6)
 barBgCorner.Parent = barBackground
 
+-- Barra de progreso morada
 local progressBar = Instance.new("Frame")
 progressBar.Size = UDim2.new(0, 0, 1, 0)
 progressBar.BackgroundColor3 = Color3.fromRGB(114, 91, 238)
@@ -86,78 +78,83 @@ local progressCorner = Instance.new("UICorner")
 progressCorner.CornerRadius = UDim.new(0, 6)
 progressCorner.Parent = progressBar
 
+-- Texto del porcentaje en el centro
 local percentLabel = Instance.new("TextLabel")
 percentLabel.Size = UDim2.new(1, 0, 1, 0)
 percentLabel.BackgroundTransparency = 1
 percentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-percentLabel.TextSize = 12
+percentLabel.TextSize = 13
 percentLabel.Font = Enum.Font.GothamBold
 percentLabel.Text = "0%"
 percentLabel.Parent = barBackground
 
--- 2. Bucle principal enfocado exclusivamente en el sistema de robo (StealPrompt)
-task.spawn(function()
-    while true do
-        local character = localPlayer.Character
-        local targetPrompt = nil
-        local targetModel = nil
-        
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            local rootPos = character.HumanoidRootPart.Position
+-- 2. Función para buscar el prompt de robo cercano
+local function scanStealBrainrot()
+    local closestPrompt, shortestDistance = nil, math.huge
+    local character = localPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local rootPos = character.HumanoidRootPart.Position
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.Name == "StealPrompt" then
+            local model = obj.Parent
+            while model and model ~= workspace and not model:GetAttribute("Brainrot") do
+                model = model.Parent
+            end
             
-            -- Busca específicamente los Brainrots en la carpeta del servidor mediante sus prompts de robo
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.Name == "StealPrompt" then
-                    local model = obj.Parent
-                    while model and model ~= workspace and not model:GetAttribute("Brainrot") do
-                        model = model.Parent
-                    end
-                    
-                    if model and model:GetAttribute("Brainrot") == true then
-                        local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-                        if primary then
-                            local dist = (primary.Position - rootPos).Magnitude
-                            -- Si estás dentro del radio de interacción para robar (15 studs o menos)
-                            if dist <= 15 then
-                                targetPrompt = obj
-                                targetModel = model
-                                break
-                            end
-                        end
+            if model and model:GetAttribute("Brainrot") == true then
+                local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                if primary then
+                    local dist = (primary.Position - rootPos).Magnitude
+                    if dist < shortestDistance and dist <= 15 then
+                        shortestDistance = dist
+                        closestPrompt = obj
                     end
                 end
             end
         end
+    end
+    return closestPrompt
+end
 
-        if targetPrompt and targetModel then
-            titleLabel.Text = "Robando: " .. targetModel.Name
-            
-            -- Anula el tiempo de espera del prompt del juego nativo
+-- 3. Bucle principal para animar la barra y ejecutar el robo
+task.spawn(function()
+    while true do
+        local targetPrompt = scanStealBrainrot()
+        
+        if targetPrompt then
             pcall(function()
                 targetPrompt.HoldDuration = 0
             end)
 
-            -- Anima la barra del 0% al 100% de forma fluida en menos de 0.5 segundos
-            for i = 1, 100, 20 do
+            -- Anima la barra fluidamente del 0% al 100% en menos de 1 segundo
+            local interrupted = false
+            for i = 1, 100, 10 do
+                if not targetPrompt or not targetPrompt.Parent then
+                    interrupted = true
+                    break
+                end
+                
                 percentLabel.Text = i .. "%"
                 progressBar.Size = UDim2.new(i / 100, 0, 1, 0)
-                task.wait(0.02)
+                task.wait(0.015)
             end
-            
+
             percentLabel.Text = "100%"
             progressBar.Size = UDim2.new(1, 0, 1, 0)
 
-            -- Dispara instantáneamente la acción de robar
-            pcall(function()
-                fireproximityprompt(targetPrompt)
-            end)
+            if not interrupted then
+                pcall(function()
+                    fireproximityprompt(targetPrompt)
+                end)
+            end
 
             task.wait(0.5)
         else
-            titleLabel.Text = "Buscando Brainrot para Robar..."
             progressBar.Size = UDim2.new(0, 0, 1, 0)
             percentLabel.Text = "0%"
-            task.wait(0.3)
         end
+
+        task.wait(0.2)
     end
 end)
