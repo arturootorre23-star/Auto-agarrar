@@ -1,0 +1,175 @@
+-- Servicios necesarios
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+
+-- 1. Crear la interfaz gráfica idéntica a tu referencia
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BrainrotAutoCollectGui"
+pcall(function()
+    screenGui.Parent = CoreGui
+end)
+if not screenGui.Parent then
+    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+end
+
+-- Panel principal (Fondo negro con esquinas redondeadas)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 270, 0, 75)
+mainFrame.Position = UDim2.new(0.5, -135, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 10)
+uiCorner.Parent = mainFrame
+
+-- Hacer el panel ARRASTRABLE con el mouse o la mano
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Texto superior (Muestra dinámicamente el nombre y la ganancia/velocidad detectada)
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 0, 30)
+titleLabel.Position = UDim2.new(0, 10, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 15
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Text = "Buscando Brainrot..."
+titleLabel.Parent = mainFrame
+
+-- Fondo de la barra de carga
+local barBackground = Instance.new("Frame")
+barBackground.Size = UDim2.new(1, -20, 0, 14)
+barBackground.Position = UDim2.new(0, 10, 0, 42)
+barBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+barBackground.BorderSizePixel = 0
+barBackground.Parent = mainFrame
+
+local barBgCorner = Instance.new("UICorner")
+barBgCorner.CornerRadius = UDim.new(0, 6)
+barBgCorner.Parent = barBackground
+
+-- Barra de progreso (Color morado/azul de tu referencia)
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(114, 91, 238)
+progressBar.BorderSizePixel = 0
+progressBar.Parent = barBackground
+
+local progressCorner = Instance.new("UICorner")
+progressCorner.CornerRadius = UDim.new(0, 6)
+progressCorner.Parent = progressBar
+
+-- Texto del porcentaje dentro de la barra
+local percentLabel = Instance.new("TextLabel")
+percentLabel.Size = UDim2.new(1, 0, 1, 0)
+percentLabel.BackgroundTransparency = 1
+percentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+percentLabel.TextSize = 12
+percentLabel.Font = Enum.Font.GothamBold
+percentLabel.Text = "0%"
+percentLabel.Parent = barBackground
+
+-- 2. Función para buscar el objeto más cercano y leer sus datos de dinero/velocidad
+local targetObject = nil
+
+local function scanBrainrot()
+    local closest, shortestDistance = nil, math.huge
+    local character = localPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local rootPos = character.HumanoidRootPart.Position
+
+    -- Escanea los objetos en el Workspace
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and (obj.Name:find("Brainrot") or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("錢") or obj:FindFirstChild("Money")) then
+            local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                local dist = (primary.Position - rootPos).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closest = obj
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- 3. Bucle principal que integra la lectura del objeto y el llenado de 2 a 5 segundos
+task.spawn(function()
+    while true do
+        targetObject = scanBrainrot()
+        
+        if targetObject then
+            local moneyValue = targetObject:GetAttribute("Money") or targetObject:GetAttribute("Speed") or "45.5m/s"
+            titleLabel.Text = targetObject.Name .." - ".. tostring(moneyValue)
+
+            -- Duración aleatoria entre 2 y 5 segundos para completar el 100%
+            local duration = math.random(20, 50) / 10 
+            local steps = 100
+            local waitTime = duration / steps
+
+            local interrupted = false
+            for i = 1, 100 do
+                if not targetObject or not targetObject.Parent then
+                    interrupted = true
+                    break
+                end
+                
+                percentLabel.Text = i .. "%"
+                progressBar.Size = UDim2.new(i / 100, 0, 1, 0)
+                task.wait(waitTime)
+            end
+
+            -- Al llegar al 100% sin interrupciones, agarra el objeto teletransportándose a él
+            if not interrupted and targetObject then
+                local character = localPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local primary = targetObject.PrimaryPart or targetObject:FindFirstChildWhichIsA("BasePart")
+                    if primary then
+                        character.HumanoidRootPart.CFrame = primary.CFrame
+                    end
+                end
+            end
+        else
+            titleLabel.Text = "Buscando Brainrot..."
+            progressBar.Size = UDim2.new(0, 0, 1, 0)
+            percentLabel.Text = "0%"
+        end
+
+        task.wait(0.5)
+        
+        progressBar.Size = UDim2.new(0, 0, 1, 0)
+        percentLabel.Text = "0%"
+    end
+end)
