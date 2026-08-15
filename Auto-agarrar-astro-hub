@@ -1,0 +1,163 @@
+-- Servicios necesarios
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+
+-- 1. Crear la interfaz gráfica flotante y arrastrable
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InstantStealGui"
+pcall(function()
+    screenGui.Parent = CoreGui
+end)
+if not screenGui.Parent then
+    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+end
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 270, 0, 75)
+mainFrame.Position = UDim2.new(0.5, -135, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 10)
+uiCorner.Parent = mainFrame
+
+-- Panel arrastrable para emulador y celular
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 0, 30)
+titleLabel.Position = UDim2.new(0, 10, 0, 5)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 15
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Text = "Buscando Brainrot para Robar..."
+titleLabel.Parent = mainFrame
+
+local barBackground = Instance.new("Frame")
+barBackground.Size = UDim2.new(1, -20, 0, 14)
+barBackground.Position = UDim2.new(0, 10, 0, 42)
+barBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+barBackground.BorderSizePixel = 0
+barBackground.Parent = mainFrame
+
+local barBgCorner = Instance.new("UICorner")
+barBgCorner.CornerRadius = UDim.new(0, 6)
+barBgCorner.Parent = barBackground
+
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(114, 91, 238)
+progressBar.BorderSizePixel = 0
+progressBar.Parent = barBackground
+
+local progressCorner = Instance.new("UICorner")
+progressCorner.CornerRadius = UDim.new(0, 6)
+progressCorner.Parent = progressBar
+
+local percentLabel = Instance.new("TextLabel")
+percentLabel.Size = UDim2.new(1, 0, 1, 0)
+percentLabel.BackgroundTransparency = 1
+percentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+percentLabel.TextSize = 12
+percentLabel.Font = Enum.Font.GothamBold
+percentLabel.Text = "0%"
+percentLabel.Parent = barBackground
+
+-- 2. Bucle principal enfocado exclusivamente en el sistema de robo (StealPrompt)
+task.spawn(function()
+    while true do
+        local character = localPlayer.Character
+        local targetPrompt = nil
+        local targetModel = nil
+        
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local rootPos = character.HumanoidRootPart.Position
+            
+            -- Busca específicamente los Brainrots en la carpeta del servidor mediante sus prompts de robo
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Name == "StealPrompt" then
+                    local model = obj.Parent
+                    while model and model ~= workspace and not model:GetAttribute("Brainrot") do
+                        model = model.Parent
+                    end
+                    
+                    if model and model:GetAttribute("Brainrot") == true then
+                        local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                        if primary then
+                            local dist = (primary.Position - rootPos).Magnitude
+                            -- Si estás dentro del radio de interacción para robar (15 studs o menos)
+                            if dist <= 15 then
+                                targetPrompt = obj
+                                targetModel = model
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if targetPrompt and targetModel then
+            titleLabel.Text = "Robando: " .. targetModel.Name
+            
+            -- Anula el tiempo de espera del prompt del juego nativo
+            pcall(function()
+                targetPrompt.HoldDuration = 0
+            end)
+
+            -- Anima la barra del 0% al 100% de forma fluida en menos de 0.5 segundos
+            for i = 1, 100, 20 do
+                percentLabel.Text = i .. "%"
+                progressBar.Size = UDim2.new(i / 100, 0, 1, 0)
+                task.wait(0.02)
+            end
+            
+            percentLabel.Text = "100%"
+            progressBar.Size = UDim2.new(1, 0, 1, 0)
+
+            -- Dispara instantáneamente la acción de robar
+            pcall(function()
+                fireproximityprompt(targetPrompt)
+            end)
+
+            task.wait(0.5)
+        else
+            titleLabel.Text = "Buscando Brainrot para Robar..."
+            progressBar.Size = UDim2.new(0, 0, 1, 0)
+            percentLabel.Text = "0%"
+            task.wait(0.3)
+        end
+    end
+end)
