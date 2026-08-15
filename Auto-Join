@@ -1,0 +1,160 @@
+-- ==========================================
+-- SCRIPT CORREGIDO Y VISIBLE - BRAINROT SCANNER
+-- ==========================================
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- CONFIGURACIÓN DE DISCORD WEBHOOK
+local DISCORD_WEBHOOK_URL = "TU_WEBHOOK_DE_DISCORD_AQUI"
+
+-- Lista de elementos raros
+local rareBrainrots = {
+    ["Pizza and Ranch"] = true,
+    ["Dragon Cannelloni"] = true,
+    ["Garama"] = true
+}
+
+local currentJobId = game.JobId
+
+-- 1. Eliminar interfaz anterior si ya estaba abierta para evitar duplicados
+if playerGui:FindFirstChild("BrainrotAlertGui") then
+    playerGui.BrainrotAlertGui:Destroy()
+end
+
+-- 2. Crear la Interfaz Gráfica (VISIBLE desde el inicio para que sepas que funciona)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BrainrotAlertGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local card = Instance.new("Frame")
+card.Size = UDim2.new(0, 320, 0, 240)
+card.Position = UDim2.new(0.5, -160, 0.1, 0)
+card.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+card.BorderSizePixel = 0
+card.Visible = true -- ¡VISIBLE DESDE EL INICIO!
+card.Parent = screenGui
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 45)
+titleLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+titleLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.Text = "🔍 Buscando Brainrots..."
+titleLabel.Parent = card
+
+local detailsLabel = Instance.new("TextLabel")
+detailsLabel.Size = UDim2.new(1, -20, 0, 110)
+detailsLabel.Position = UDim2.new(0, 10, 0, 50)
+detailsLabel.BackgroundTransparency = 1
+detailsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+detailsLabel.TextSize = 14
+detailsLabel.TextWrapped = true
+detailsLabel.TextXAlignment = Enum.TextXAlignment.Left
+detailsLabel.TextYAlignment = Enum.TextYAlignment.Top
+detailsLabel.Text = "Servidor actual analizándose...\nServer ID: " .. currentJobId
+detailsLabel.Parent = card
+
+local joinButton = Instance.new("TextButton")
+joinButton.Size = UDim2.new(0.8, 0, 0, 40)
+joinButton.Position = UDim2.new(0.1, 0, 0.78, 0)
+joinButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+joinButton.Text = "🔗 Copiar Server ID / JobId"
+joinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+joinButton.TextSize = 16
+joinButton.Font = Enum.Font.SourceSansBold
+joinButton.Parent = card
+
+-- 3. Enviar Alerta a Discord
+local function sendDiscordAlert(brainrotName, value, tier)
+    if DISCORD_WEBHOOK_URL == "" or DISCORD_WEBHOOK_URL:find("TU_WEBHOOK") then return end
+    
+    local payload = {
+        content = "@everyone 🚨 **¡SECRET DETECTADO!**",
+        embeds = {{
+            title = "🧠 Brainrot Raro Encontrado",
+            color = 16711680,
+            fields = {
+                {name = "Nombre", value = tostring(brainrotName), inline = true},
+                {name = "Valor", value = tostring(value), inline = true},
+                {name = "Tier", value = tostring(tier), inline = true},
+                {name = "Server ID (JobId)", value = "```" .. tostring(currentJobId) .. "```", inline = false}
+            },
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
+    
+    pcall(function()
+        HttpService:PostAsync(DISCORD_WEBHOOK_URL, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
+    end)
+end
+
+-- 4. Botón JOIN / Copiar ID
+joinButton.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard(currentJobId)
+        joinButton.Text = "¡JobId Copiado!"
+        task.wait(2)
+        joinButton.Text = "🔗 Copiar Server ID / JobId"
+    else
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, currentJobId, player)
+    end
+end)
+
+-- 5. Cuando detecta el Brainrot raro, actualiza el panel y suena
+local function triggerAlert(brainrotName, value, tier)
+    titleLabel.Text = "✅ " .. tostring(brainrotName)
+    detailsLabel.Text = string.format(
+        "💰 Value: %s\n🏷️ Tier: %s\n📊 Type: Combo\n🆔 Server ID:\n%s",
+        tostring(value),
+        tostring(tier),
+        tostring(currentJobId)
+    )
+    
+    -- Reproducir Sonido
+    pcall(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://9114223207"
+        sound.Volume = 1
+        sound.Parent = playerGui
+        sound:Play()
+        sound.Ended:Connect(function() sound:Destroy() end)
+    end)
+
+    -- Mandar webhook a Discord
+    sendDiscordAlert(brainrotName, value, tier)
+end
+
+-- 6. Detección en el Workspace
+local function checkObject(obj)
+    if rareBrainrots[obj.Name] then
+        local val = obj:GetAttribute("Value") or "$1B/s"
+        local tier = obj:GetAttribute("Tier") or "SECRET"
+        triggerAlert(obj.Name, val, tier)
+    end
+end
+
+for _, obj in ipairs(Workspace:GetDescendants()) do
+    checkObject(obj)
+end
+
+Workspace.DescendantAdded:Connect(function(obj)
+    task.wait()
+    checkObject(obj)
+end)
+
+-- 7. Sistema de Bots (Si es bot, escanea, avisa y cambia de servidor)
+if player:GetAttribute("IsBot") == true then
+    task.spawn(function()
+        task.wait(20)
+        player:Kick("Cambiando de servidor...")
+    end)
+end
+
+print("🔥 Sistema cargado y panel visible correctamente.")
