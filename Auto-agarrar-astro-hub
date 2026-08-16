@@ -1,159 +1,200 @@
--- Servicios necesarios
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+-- Servicios necesarios[span_0](start_span)[span_0](end_span)
+local Players = game:GetService("Players")  
+local CoreGui = game:GetService("CoreGui")  
+local UserInputService = game:GetService("UserInputService")  
+local localPlayer = Players.LocalPlayer  
+  
+-- 1. Crear la interfaz gráfica idéntica a tu referencia[span_1](start_span)[span_1](end_span)
+local screenGui = Instance.new("ScreenGui")  
+screenGui.Name = "BrainrotAutoCollectGui"  
+pcall(function()  
+    screenGui.Parent = CoreGui  
+end)  
+if not screenGui.Parent then  
+    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")  
+end  
+  
+-- Panel principal (Fondo negro con esquinas redondeadas)[span_2](start_span)[span_2](end_span)
+local mainFrame = Instance.new("Frame")  
+mainFrame.Size = UDim2.new(0, 270, 0, 75)  
+mainFrame.Position = UDim2.new(0.5, -135, 0.2, 0)  
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)  
+mainFrame.BorderSizePixel = 0  
+mainFrame.Active = true  
+mainFrame.Parent = screenGui  
+  
+local uiCorner = Instance.new("UICorner")  
+uiCorner.CornerRadius = UDim.new(0, 10)  
+uiCorner.Parent = mainFrame  
+  
+-- Hacer el panel ARRASTRABLE con el mouse o la mano[span_3](start_span)[span_3](end_span)
+local dragging, dragInput, dragStart, startPos  
+mainFrame.InputBegan:Connect(function(input)  
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then  
+        dragging = true  
+        dragStart = input.Position  
+        startPos = mainFrame.Position  
+        input.Changed:Connect(function()  
+            if input.UserInputState == Enum.UserInputState.End then  
+                dragging = false  
+            end  
+        end)  
+    end  
+end)  
+  
+mainFrame.InputChanged:Connect(function(input)  
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then  
+        dragInput = input  
+    end  
+end)  
+  
+UserInputService.InputChanged:Connect(function(input)  
+    if input == dragInput and dragging then  
+        local delta = input.Position - dragStart  
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)  
+    end  
+end)  
+  
+-- Texto superior (Muestra dinámicamente el nombre y la ganancia detectada)[span_4](start_span)[span_4](end_span)
+local titleLabel = Instance.new("TextLabel")  
+titleLabel.Size = UDim2.new(1, -80, 0, 30)  
+titleLabel.Position = UDim2.new(0, 10, 0, 5)  
+titleLabel.BackgroundTransparency = 1  
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)  
+titleLabel.TextSize = 14  
+titleLabel.Font = Enum.Font.GothamBold  
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left  
+titleLabel.Text = "Buscando base..."  
+titleLabel.Parent = mainFrame  
 
-local LocalPlayer = Players.LocalPlayer
-
--- Crear o limpiar interfaz previa si ya existía
-if CoreGui:FindFirstChild("XenAutoStealGui") then
-    CoreGui.XenAutoStealGui:Destroy()
-end
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "XenAutoStealGui"
-pcall(function()
-    ScreenGui.Parent = CoreGui
-end)
-if not ScreenGui.Parent then
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
-
--- Panel principal flotante idéntico al estilo del video
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 65)
-MainFrame.Position = UDim2.new(0.3, 0, 0.05, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
-
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = MainFrame
-
--- Título del panel (Nombre del objeto/base detectado)
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(1, -15, 0, 24)
-TitleLabel.Position = UDim2.new(0, 10, 0, 6)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.TextSize = 13
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Text = "Buscando..."
-TitleLabel.Parent = MainFrame
-
--- Estado secundario (Ej: "0%" o "Paused" en color amarillo)
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(0, 60, 0, 24)
-StatusLabel.Position = UDim2.new(1, -70, 0, 6)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.TextColor3 = Color3.fromRGB(255, 220, 0) -- Amarillo exacto del estado
-StatusLabel.TextSize = 13
-StatusLabel.Font = Enum.Font.GothamBold
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
-StatusLabel.Text = "Paused"
-StatusLabel.Parent = MainFrame
-
--- Barra de progreso inferior
-local BarBackground = Instance.new("Frame")
-BarBackground.Size = UDim2.new(1, -20, 0, 10)
-BarBackground.Position = UDim2.new(0, 10, 0, 38)
-BarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-BarBackground.BorderSizePixel = 0
-BarBackground.Parent = MainFrame
-
-local BarBgCorner = Instance.new("UICorner")
-BarBgCorner.CornerRadius = UDim.new(0, 4)
-BarBgCorner.Parent = BarBackground
-
-local ProgressBar = Instance.new("Frame")
-ProgressBar.Size = UDim2.new(0, 0, 1, 0)
-ProgressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- Blanco/Luminoso estilo HUD
-ProgressBar.BorderSizePixel = 0
-ProgressBar.Parent = BarBackground
-
-local ProgressCorner = Instance.new("UICorner")
-ProgressCorner.CornerRadius = UDim.new(0, 4)
-ProgressCorner.Parent = ProgressBar
-
--- Función de escaneo avanzada para encontrar prompts con acción "Robar"
-local function getBestRobarPrompt()
-    local closestPrompt = nil
-    local shortestDistance = math.huge
-    local character = LocalPlayer.Character
-    
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-    local rootPos = character.HumanoidRootPart.Position
-
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") then
-            if string.lower(obj.ActionText) == "robar" then
-                local parentPart = obj.Parent
-                if parentPart and (parentPart:IsA("BasePart") or parentPart:IsA("Model")) then
-                    local targetPos = parentPart:IsA("Model") and parentPart:GetPivot().Position or parentPart.Position
-                    local dist = (rootPos - targetPos).Magnitude
-                    
-                    if dist < shortestDistance and dist <= (obj.MaxActivationDistance + 15) then
-                        shortestDistance = dist
-                        closestPrompt = obj
-                    end
-                end
-            end
-        end
-    end
-    return closestPrompt
-end
-
--- Bucle principal del auto-robado sincronizado con la interfaz
-task.spawn(function()
-    local progressValue = 0
-    
-    while true do
-        local targetPrompt = getBestRobarPrompt()
-        
-        if targetPrompt then
-            -- Intentamos extraer el nombre real del objeto desde la jerarquía del ProximityPrompt
-            local parentName = "Brainrot"
-            if targetPrompt.Parent and targetPrompt.Parent.Parent then
-                parentName = targetPrompt.Parent.Parent.Name
-            end
-            
-            TitleLabel.Text = parentName
-            StatusLabel.Text = "Robando"
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 100) -- Verde de acción
-            
-            -- Incremento rápido y fluido hasta completar el 100% en menos de 1 segundo
-            for i = 0, 100, 20 do
-                progressValue = i
-                ProgressBar.Size = UDim2.new(progressValue / 100, 0, 1, 0)
-                task.wait(0.04)
-            end
-            
-            -- Disparar instantáneamente la acción de robar de forma automática
-            pcall(function()
-                fireproximityprompt(targetPrompt)
-            end)
-            
-            progressValue = 100
-            ProgressBar.Size = UDim2.new(1, 0, 1, 0)
-            StatusLabel.Text = "Paused"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 220, 0) -- Vuelve al amarillo de pausa del video
-            
-            task.wait(0.5)
-        else
-            -- Si no hay nada cerca, simula el estado de pausa / búsqueda pasiva del video
-            TitleLabel.Text = "Buscando base..."
-            StatusLabel.Text = "Paused"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 220, 0)
-            
-            progressValue = 0
-            ProgressBar.Size = UDim2.new(0, 0, 1, 0)
-            
-            task.wait(0.2)
-        end
-    end
+-- Etiqueta de Estado (Ej: "Paused" en color amarillo como el video)
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0, 70, 0, 30)
+statusLabel.Position = UDim2.new(1, -75, 0, 5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(255, 220, 0) -- Amarillo exacto de pausa
+statusLabel.TextSize = 13
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextXAlignment = Enum.TextXAlignment.Right
+statusLabel.Text = "Paused"
+statusLabel.Parent = mainFrame
+  
+-- Fondo de la barra de carga[span_5](start_span)[span_5](end_span)
+local barBackground = Instance.new("Frame")  
+barBackground.Size = UDim2.new(1, -20, 0, 14)  
+barBackground.Position = UDim2.new(0, 10, 0, 42)  
+barBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 35)  
+barBackground.BorderSizePixel = 0  
+barBackground.Parent = mainFrame  
+  
+local barBgCorner = Instance.new("UICorner")  
+barBgCorner.CornerRadius = UDim.new(0, 6)  
+barBgCorner.Parent = barBackground  
+  
+-- Barra de progreso (Color morado/azul de tu referencia)[span_6](start_span)[span_6](end_span)
+local progressBar = Instance.new("Frame")  
+progressBar.Size = UDim2.new(0, 0, 1, 0)  
+progressBar.BackgroundColor3 = Color3.fromRGB(114, 91, 238)  
+progressBar.BorderSizePixel = 0  
+progressBar.Parent = barBackground  
+  
+local progressCorner = Instance.new("UICorner")  
+progressCorner.CornerRadius = UDim.new(0, 6)  
+progressCorner.Parent = progressBar  
+  
+-- Texto del porcentaje dentro de la barra[span_7](start_span)[span_7](end_span)
+local percentLabel = Instance.new("TextLabel")  
+percentLabel.Size = UDim2.new(1, 0, 1, 0)  
+percentLabel.BackgroundTransparency = 1  
+percentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)  
+percentLabel.TextSize = 12  
+percentLabel.Font = Enum.Font.GothamBold  
+percentLabel.Text = "0%"  
+percentLabel.Parent = barBackground  
+  
+-- 2. Función perfeccionada para buscar específicamente ProximityPrompts con la acción "Robar"
+local function scanRobarPrompt()  
+    local closestPrompt = nil  
+    local shortestDistance = math.huge  
+    local character = localPlayer.Character  
+      
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end  
+    local rootPos = character.HumanoidRootPart.Position  
+  
+    for _, obj in ipairs(workspace:GetDescendants()) do  
+        if obj:IsA("ProximityPrompt") then  
+            -- Filtramos estrictamente por la acción de robar del juego  
+            if string.lower(obj.ActionText) == "robar" then  
+                local parentPart = obj.Parent  
+                if parentPart and (parentPart:IsA("BasePart") or parentPart:IsA("Model")) then  
+                    local targetPos = parentPart:IsA("Model") and parentPart:GetPivot().Position or parentPart.Position  
+                    local dist = (rootPos - targetPos).Magnitude  
+                      
+                    if dist < shortestDistance and dist <= (obj.MaxActivationDistance + 12) then  
+                        shortestDistance = dist  
+                        closestPrompt = obj  
+                    end  
+                end  
+            end  
+        end  
+    end  
+    return closestPrompt  
+end  
+  
+-- 3. Bucle principal con barra fluida, detección real y autorrobo instantáneo (< 1 segundo)
+task.spawn(function()  
+    while true do  
+        local targetPrompt = scanRobarPrompt()  
+          
+        if targetPrompt then  
+            -- Extraemos el nombre de la base o el objeto del brainrot de forma limpia
+            local baseName = "Base"  
+            if targetPrompt.Parent and targetPrompt.Parent.Parent then  
+                baseName = targetPrompt.Parent.Parent.Name  
+            end  
+              
+            titleLabel.Text = baseName  
+            statusLabel.Text = "Robando"  
+            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100) -- Cambia a verde mientras roba  
+  
+            -- Cuenta progresiva rápida y fluida para asegurar la captura en menos de un segundo  
+            local interrupted = false  
+            for i = 1, 100, 15 do  
+                local currentCharacter = localPlayer.Character  
+                if not currentCharacter or not currentCharacter:FindFirstChild("HumanoidRootPart") or not targetPrompt.Parent then  
+                    interrupted = true  
+                    break  
+                end  
+                  
+                percentLabel.Text = i .. "%"  
+                progressBar.Size = UDim2.new(i / 100, 0, 1, 0)  
+                task.wait(0.04)  
+            end  
+  
+            -- Al completarse al 100%, ejecuta el ProximityPrompt de forma totalmente automática  
+            if not interrupted then  
+                pcall(function()  
+                    fireproximityprompt(targetPrompt)  
+                end)  
+                  
+                percentLabel.Text = "100%"  
+                progressBar.Size = UDim2.new(1, 0, 1, 0)  
+                statusLabel.Text = "Paused"  
+                statusLabel.TextColor3 = Color3.fromRGB(255, 220, 0) -- Regresa a amarillo de pausa como el video  
+                task.wait(0.6)  
+            else  
+                statusLabel.Text = "Paused"  
+                statusLabel.TextColor3 = Color3.fromRGB(255, 220, 0)  
+            end  
+        else  
+            -- Si no hay objetivos cercanos, mantiene el panel activo en modo búsqueda/pausa  
+            titleLabel.Text = "Buscando base..."  
+            statusLabel.Text = "Paused"  
+            statusLabel.TextColor3 = Color3.fromRGB(255, 220, 0)  
+            progressBar.Size = UDim2.new(0, 0, 1, 0)  
+            percentLabel.Text = "0%"  
+        end  
+  
+        task.wait(0.2)  
+    end  
 end)
