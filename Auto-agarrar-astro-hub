@@ -1,7 +1,23 @@
-    ( _G ) . updateStealPanelToggle = ( function ( v1162 ) 
-        if ( ( v1239 ) and ( v1239.Parent ) ) then
-            -- Lógica de actualización del botón de estado
-            v1239.BackgroundColor3 = v1162 and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
-        end
-    end )
-end )
+-- Hook de metatabla para el PlaceId
+local oldMt;
+oldMt = hookmetamethod(game, '__index', newcclosure(function(self, index, ...)
+    if index == 'PlaceId' then
+        print('placeid hook activo')
+        return 109983668079237;
+    end
+    return oldMt(self, index, ...);
+end))
+
+-- Configuración de estados globales iniciales
+_G.AutoBuyEnabled = _G.AutoBuyEnabled or true
+_G.autoTurretEnabled = _G.autoTurretEnabled or false
+
+-- Función de actualización para los elementos visuales del panel
+local function updateStealPanelToggle(state)
+    if v1239 and v1239.Parent then
+        -- Ajuste visual del estado del botón (Activado / Desactivado)
+        v1239.BackgroundColor3 = state and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
+    end
+end
+
+_G.updateStealPanelToggle = updateStealPanelToggle
