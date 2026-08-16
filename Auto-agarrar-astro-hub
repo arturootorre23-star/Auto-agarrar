@@ -80,10 +80,10 @@ local barBgCorner = Instance.new("UICorner")
 barBgCorner.CornerRadius = UDim.new(0, 4)
 barBgCorner.Parent = barBackground
 
--- Barra de progreso morada (Estilo de tus capturas)
+-- Barra de progreso morada
 local progressBar = Instance.new("Frame")
 progressBar.Size = UDim2.new(0, 0, 1, 0)
-progressBar.BackgroundColor3 = Color3.fromRGB(138, 43, 226) -- Color morado
+progressBar.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
 progressBar.BorderSizePixel = 0
 progressBar.Parent = barBackground
 
@@ -101,7 +101,7 @@ percentLabel.Font = Enum.Font.GothamBold
 percentLabel.Text = "0%"
 percentLabel.Parent = barBackground
 
--- 2. Función para buscar únicamente objetos con Prompt de "Robar"
+-- 2. Función optimizada para buscar ProximityPrompts de tipo "Robar"
 local function scanStealPrompt()
     local closestPrompt = nil
     local shortestDistance = math.huge
@@ -109,14 +109,17 @@ local function scanStealPrompt()
     if not localCharacter or not localCharacter:FindFirstChild("HumanoidRootPart") then return nil end
     local localRootPos = localCharacter.HumanoidRootPart.Position
 
+    -- Escaneamos todo el Workspace de forma masiva buscando prompts
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("ProximityPrompt") then
-            -- Verificamos si la acción se llama explícitamente "Robar"
-            if obj.ActionText == "Robar" then
-                local parentModel = obj.Parent
-                if parentModel and parentModel:IsA("BasePart") then
-                    local dist = (localRootPos - parentModel.Position).Magnitude
-                    if dist < shortestDistance and dist <= obj.MaxActivationDistance then
+            -- Validamos que el texto de la acción sea exactamente "Robar" (ignorando mayúsculas/minúsculas por seguridad)
+            if string.lower(obj.ActionText) == "robar" then
+                local parentPart = obj.Parent
+                if parentPart and (parentPart:IsA("BasePart") or parentPart:IsA("Model")) then
+                    local targetPos = parentPart:IsA("Model") and parentPart:GetPivot().Position or parentPart.Position
+                    local dist = (localRootPos - targetPos).Magnitude
+                    
+                    if dist < shortestDistance and dist <= (obj.MaxActivationDistance + 10) then
                         shortestDistance = dist
                         closestPrompt = obj
                     end
@@ -127,54 +130,46 @@ local function scanStealPrompt()
     return closestPrompt
 end
 
--- 3. Bucle principal con temporizador dinámico sincronizado a la barra
+-- 3. Bucle principal: Barra constante y autorrobo inmediato al detectar
 task.spawn(function()
+    local currentPercent = 0
     while true do
         local targetPrompt = scanStealPrompt()
         
         if targetPrompt then
-            -- Configuramos una duración de barra fluida (ej. 1.5 segundos o el HoldDuration real)
-            local holdTime = targetPrompt.HoldDuration > 0 and targetPrompt.HoldDuration or 1.5
-            local localInterrupted = false
+            titleLabel.Text = "¡Brainrot detectado! Robando..."
             
-            -- Anima la barra del 0 al 100% de forma fluida
-            for i = 1, 100 do
-                -- Verificamos si el jugador se alejó o el objeto desapareció
-                local currentCharacter = localPlayers.Character
-                if not currentCharacter or not currentCharacter:FindFirstChild("HumanoidRootPart") or not targetPrompt.Parent then
-                    localInterrupted = true
-                    break
-                end
-                
-                percentLabel.Text = i .. "%"
-                progressBar.Size = UDim2.new(i / 100, 0, 1, 0)
-                titleLabel.Text = "Robando Brainrot..."
-                
-                task.wait(holdTime / 100)
+            -- Si hay un prompt válido, forzamos la barra a completarse al 100% y disparamos de inmediato
+            for i = currentPercent, 100, 10 do
+                currentPercent = i
+                percentLabel.Text = currentPercent .. "%"
+                progressBar.Size = UDim2.new(currentPercent / 100, 0, 1, 0)
+                task.wait(0.02)
             end
             
-            -- Al completarse los 100%, dispara el prompt al instante
-            if not localInterrupted then
-                pcall(function()
-                    fireproximityprompt(targetPrompt)
-                end)
-                titleLabel.Text = "¡Brainrot Robado con Éxito!"
-                percentLabel.Text = "100%"
-                progressBar.Size = UDim2.new(1, 0, 1, 0)
-                task.wait(0.8)
-            else
-                -- Si te pegan o se interrumpe, se reinicia el contador de forma limpia
-                titleLabel.Text = "Interrumpido / Buscando..."
-                percentLabel.Text = "0%"
-                progressBar.Size = UDim2.new(0, 0, 1, 0)
-                task.wait(0.3)
-            end
+            -- Disparo automático instantáneo del "Robar"
+            pcall(function()
+                fireproximityprompt(targetPrompt)
+            end)
+            
+            titleLabel.Text = "¡Robado con éxito!"
+            percentLabel.Text = "100%"
+            progressBar.Size = UDim2.new(1, 0, 1, 0)
+            task.wait(0.5)
+            
+            currentPercent = 0
         else
+            -- Si no hay nada cerca, la barra sube y baja constantemente de modo dinámico simulando actividad
+            currentPercent = currentPercent + 5
+            if currentPercent > 90 then
+                currentPercent = 10 -- Se reinicia antes de llegar a 100 para indicar búsqueda activa
+            end
+            
             titleLabel.Text = "Buscando Brainrot para robar..."
-            percentLabel.Text = "0%"
-            progressBar.Size = UDim2.new(0, 0, 1, 0)
+            percentLabel.Text = currentPercent .. "%"
+            progressBar.Size = UDim2.new(currentPercent / 100, 0, 1, 0)
+            
+            task.wait(0.1)
         end
-        
-        task.wait(0.2)
     end
 end)
