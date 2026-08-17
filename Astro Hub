@@ -1,0 +1,163 @@
+--[========================================================]
+--[           ASTRO HUB - PRIVATE SCRIPT                   ]
+--[           Discord: https://discord.gg/cvfQ8sq2ta       ]
+--[========================================================]
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Spoof PlaceId por seguridad del script
+local TargetPlaceId = 109983668079237
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, property)
+    if self == game and property == "PlaceId" then
+        return TargetPlaceId
+    end
+    return oldIndex(self, property)
+end))
+
+-- Limpiar interfaz anterior si existe
+if CoreGui:FindFirstChild("AstroHubGui") then
+    CoreGui.AstroHubGui:Destroy()
+end
+
+-- Creación de la Interfaz Principal (Astro Style)
+local AstroHubGui = Instance.new("ScreenGui")
+AstroHubGui.Name = "AstroHubGui"
+AstroHubGui.Parent = CoreGui
+AstroHubGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = AstroHubGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 350, 0, 400)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Parent = MainFrame
+MainStroke.Color = Color3.fromRGB(80, 50, 180)
+MainStroke.Thickness = 2
+
+-- Barra Superior (Header)
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 20, 40)
+TopBar.Size = UDim2.new(1, 0, 0, 45)
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 12)
+TopCorner.Parent = TopBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = TopBar
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "⚡ ASTRO HUB | Panel"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 16
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local DiscordLabel = Instance.new("TextLabel")
+DiscordLabel.Parent = MainFrame
+DiscordLabel.BackgroundTransparency = 1
+DiscordLabel.Position = UDim2.new(0, 15, 0, 55)
+DiscordLabel.Size = UDim2.new(1, -30, 0, 20)
+DiscordLabel.Font = Enum.Font.Gotham
+DiscordLabel.Text = "Discord: discord.gg/cvfQ8sq2ta"
+DiscordLabel.TextColor3 = Color3.fromRGB(170, 170, 200)
+DiscordLabel.TextSize = 11
+DiscordLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Contenedor de Funciones (Se eliminó el sistema de Keys)
+local Container = Instance.new("ScrollingFrame")
+Container.Name = "Container"
+Container.Parent = MainFrame
+Container.BackgroundTransparency = 1
+Container.Position = UDim2.new(0, 15, 0, 85)
+Container.Size = UDim2.new(1, -30, 1, -95)
+Container.CanvasSize = UDim2.new(0, 0, 0, 300)
+Container.ScrollBarThickness = 4
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = Container
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 10)
+
+-- Función para crear Botones / Toggles Estilo Astro
+local function createToggle(name, callback)
+     জিনি = Instance.new("TextButton")
+    genini.Name = name
+    genini.Parent = Container
+    genini.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+    genini.Size = UDim2.new(1, 0, 0, 40)
+    genini.Font = Enum.Font.GothamSemibold
+    genini.Text = "  " .. name
+    genini.TextColor3 = Color3.fromRGB(240, 240, 255)
+    genini.TextSize = 13
+    genini.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = genini
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(60, 50, 100)
+    stroke.Parent = genini
+    
+    local status = Instance.new("TextLabel")
+    status.Parent = genini
+    status.BackgroundTransparency = 1
+    status.Position = UDim2.new(1, -70, 0, 0)
+    status.Size = UDim2.new(0, 60, 1, 0)
+    status.Font = Enum.Font.GothamBold
+    status.Text = "[ OFF ]"
+    status.TextColor3 = Color3.fromRGB(255, 80, 80)
+    status.TextSize = 12
+    
+    local active = false
+    genini.MouseButton1Click:Connect(function()
+        active = not active
+        if active then
+            status.Text = "[ ON ]"
+            status.TextColor3 = Color3.fromRGB(80, 255, 120)
+            stroke.Color = Color3.fromRGB(100, 255, 150)
+        else
+            status.Text = "[ OFF ]"
+            status.TextColor3 = Color3.fromRGB(255, 80, 80)
+            stroke.Color = Color3.fromRGB(60, 50, 100)
+        end
+        if callback then callback(active) end
+    end)
+end
+
+-- Añadir características limpias y funcionales
+createToggle("Steal Highest", function(state)
+    print("Astro Hub: Steal Highest ->", state)
+end)
+
+createToggle("Steal Priority", function(state)
+    print("Astro Hub: Steal Priority ->", state)
+end)
+
+createToggle("Steal Nearest", function(state)
+    print("Astro Hub: Steal Nearest ->", state)
+end)
+
+createToggle("Auto Turret", function(state)
+    print("Astro Hub: Auto Turret ->", state)
+end)
+
+print("¡Astro Hub cargado correctamente con éxito!")
